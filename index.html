@@ -19,7 +19,6 @@ body {
   height: 100vh;
 }
 
-/* --- LAYER 1: GLITCH BACKGROUND --- */
 #glitch-canvas {
   position: fixed;
   inset: 0;
@@ -29,7 +28,6 @@ body {
   image-rendering: pixelated;
 }
 
-/* --- LAYER 2: PHOTO (clean, no glitch) --- */
 #photo-layer {
   position: fixed;
   inset: 0;
@@ -42,7 +40,6 @@ body {
   pointer-events: none;
 }
 
-/* --- LAYER 3: TEXT (clean, no glitch) --- */
 #text-layer {
   position: fixed;
   inset: 0;
@@ -118,7 +115,6 @@ body {
   50% { opacity: 0; }
 }
 
-/* --- MIC STATUS --- */
 #mic-status {
   position: fixed;
   bottom: 1.5rem;
@@ -157,11 +153,7 @@ body {
 <div id="mic-status">⏳ ATTIVAZIONE MICROFONO...</div>
 
 <script>
-// ============================================================
-// AUDIO
-// ============================================================
 let audioCtx, analyser, dataArray;
-let audioEnergy = 0;
 let micReady = false;
 
 async function initAudio() {
@@ -190,9 +182,6 @@ function getAudioEnergy() {
   return sum / (dataArray.length * 255);
 }
 
-// ============================================================
-// CANVAS SETUP
-// ============================================================
 const canvas = document.getElementById('glitch-canvas');
 const ctx = canvas.getContext('2d');
 let W, H;
@@ -206,9 +195,6 @@ resize();
 
 let time = 0;
 
-// ============================================================
-// GLITCH PARAMS
-// ============================================================
 let p = {
   intensity: 0,
   noise: 0,
@@ -247,15 +233,11 @@ function updateParams(energy) {
   }
 }
 
-// ============================================================
-// DRAW GLITCH
-// ============================================================
 function draw() {
   const energy = getAudioEnergy();
   time += 1/60;
   updateParams(energy);
 
-  // --- Pixelation (disegno a risoluzione ridotta) ---
   const px = Math.max(1, Math.floor(1 + p.pixelate));
   const cw = Math.ceil(W / px);
   const ch = Math.ceil(H / px);
@@ -263,7 +245,6 @@ function draw() {
   ctx.fillStyle = '#050a0f';
   ctx.fillRect(0, 0, W, H);
 
-  // --- Onde di distorsione digitali ---
   const numBands = 12 + Math.floor(p.intensity * 30);
   const bandH = ch / numBands;
   for (let i = 0; i < numBands; i++) {
@@ -281,7 +262,6 @@ function draw() {
     ctx.fillRect(offset, y * px, cw * px, Math.ceil(bandH) * px);
   }
 
-  // --- RGB split (aberrazione cromatica) ---
   if (p.rgb > 0.5) {
     const sx = Math.floor(((Math.random() - 0.5) * p.rgb * 2) / px) * px;
     const sy = Math.floor(((Math.random() - 0.5) * p.rgb) / px) * px;
@@ -293,7 +273,6 @@ function draw() {
     ctx.fillRect(-sx, -sy, cw * px, ch * px);
   }
 
-  // --- VHS Static Noise ---
   if (p.noise > 0.01) {
     const numNoiseLines = Math.floor(3 + p.noise * 25);
     for (let i = 0; i < numNoiseLines; i++) {
@@ -311,7 +290,6 @@ function draw() {
     }
   }
 
-  // --- Digital blocks (corruzione) ---
   if (p.intensity > 0.1) {
     const nb = Math.floor(2 + p.intensity * 12);
     for (let i = 0; i < nb; i++) {
@@ -324,7 +302,6 @@ function draw() {
     }
   }
 
-  // --- CRT Scanlines ---
   if (p.scanline > 0.01) {
     for (let y = 0; y < H; y += 3) {
       ctx.fillStyle = `rgba(0, 0, 0, ${p.scanline})`;
@@ -332,9 +309,7 @@ function draw() {
     }
   }
 
-  // --- Edge glow (ciano/blu) ---
   if (p.edgeGlow > 0.5) {
-    const glow = p.edgeGlow;
     const g = ctx.createRadialGradient(W/2, H/2, H*0.3, W/2, H/2, H*0.6);
     g.addColorStop(0, 'rgba(0,0,0,0)');
     g.addColorStop(1, `rgba(0, 180, 255, ${0.04 * p.intensity})`);
@@ -342,7 +317,6 @@ function draw() {
     ctx.fillRect(0, 0, W, H);
   }
 
-  // --- Vignetta scura ---
   const vg = ctx.createRadialGradient(W/2, H/2, H*0.25, W/2, H/2, H*0.85);
   vg.addColorStop(0, 'rgba(0,0,0,0)');
   vg.addColorStop(1, 'rgba(0,0,0,0.7)');
@@ -352,9 +326,6 @@ function draw() {
   requestAnimationFrame(draw);
 }
 
-// ============================================================
-// TYPING
-// ============================================================
 const bodyEl = document.getElementById('body-text');
 const fullText = bodyEl.textContent.trim();
 bodyEl.textContent = '';
@@ -370,9 +341,6 @@ function typeWriter() {
   }
 }
 
-// ============================================================
-// START
-// ============================================================
 initAudio();
 draw();
 setTimeout(typeWriter, 4500);
