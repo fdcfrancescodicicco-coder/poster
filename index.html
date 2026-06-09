@@ -36,6 +36,7 @@ body {
   height: 100%;
   image-rendering: pixelated;
   pointer-events: none;
+  mix-blend-mode: multiply;
 }
 
 #text-layer {
@@ -70,59 +71,70 @@ body {
 }
 
 #title {
-  font-size: clamp(3rem, 10vw, 8rem);
-  font-weight: 900;
-  letter-spacing: -0.02em;
-  line-height: 1;
-  margin-bottom: 0.25em;
-  text-shadow: 0 0 30px rgba(0, 180, 255, 0.4);
-  color: #fff;
-}
-
-#subtitle {
-  font-size: clamp(1rem, 3vw, 2rem);
-  font-weight: 300;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  margin-bottom: 1.5em;
-  opacity: 0;
-  color: rgba(0, 229, 255, 0.9);
-}
-
-#subtitle.reveal { opacity: 1; }
-
-#body-text {
-  font-size: clamp(0.9rem, 1.5vw, 1.2rem);
+  font-size: 0.55rem;
   font-weight: 400;
-  line-height: 1.6;
-  max-width: 640px;
-  opacity: 0;
-  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.08em;
+  line-height: 1;
+  margin-bottom: 0;
+  color: #fff;
+  font-family: monospace;
 }
 
-#body-text.reveal { opacity: 1; }
 
-.typing::after {
-  content: '|';
-  display: inline;
-  animation: blink 0.8s step-end infinite;
-  color: #00e5ff;
-}
 
-@keyframes blink {
-  50% { opacity: 0; }
-}
-
-#mic-status {
+#controls {
   position: fixed;
   bottom: 1.5rem;
-  right: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 10;
+  width: 280px;
+  max-width: 70vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transition: opacity 0.4s;
+}
+
+#controls.hidden { opacity: 0; pointer-events: none; }
+
+#slider-label {
   color: #fff;
-  font-size: 0.7rem;
+  font-size: 0.55rem;
   font-family: monospace;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   pointer-events: none;
+}
+
+#distortion-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.25);
+  outline: none;
+  cursor: pointer;
+}
+
+#distortion-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+#distortion-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: none;
+  cursor: pointer;
 }
 
 #paste-hint {
@@ -131,12 +143,77 @@ body {
   left: 1.5rem;
   z-index: 10;
   color: #fff;
-  font-size: 0.7rem;
+  font-size: 0.55rem;
   font-family: monospace;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   pointer-events: none;
+  transition: opacity 0.4s;
 }
-</style>
+
+#paste-hint.hidden { opacity: 0; }
+
+#mic-status {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 10;
+  color: #fff;
+  font-size: 0.55rem;
+  font-family: monospace;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+  transition: opacity 0.4s;
+}
+
+#mic-status.hidden { opacity: 0; }
+
+#ui-toggle {
+  position: fixed;
+  bottom: 0.7rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  color: #fff;
+  font-size: 0.5rem;
+  font-family: monospace;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: opacity 0.3s;
+  user-select: none;
+  opacity: 0.35;
+  background: none;
+  border: none;
+  padding: 0;
+  line-height: 1;
+}
+
+#ui-toggle:hover {
+  opacity: 1;
+}
+
+#mic-toggle {
+  position: fixed;
+  bottom: 0.7rem;
+  right: 1.5rem;
+  z-index: 20;
+  color: #fff;
+  font-size: 0.5rem;
+  font-family: monospace;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  user-select: none;
+  opacity: 0.5;
+  transition: opacity 0.3s;
+}
+
+#mic-toggle:hover {
+  opacity: 1;
+}
+
+#mic-toggle.off {
+  opacity: 0.25;
+  color: rgba(255, 100, 100, 0.6);
+}</style>
 </head>
 <body>
 
@@ -145,26 +222,31 @@ body {
 
 <div id="text-layer">
   <div class="text-block">
-    <h1 id="title">TITOLO</h1>
-  </div>
-  <div class="text-block">
-    <p id="subtitle" class="reveal">Sottotitolo</p>
-  </div>
-  <div class="text-block">
-    <p id="body-text" class="reveal typing">Testo descrittivo — modifica questo contenuto.</p>
+    <h1 id="title">HOW TO DISAPPEAR COMPLETELY</h1>
   </div>
 </div>
 
 <div id="mic-status">ATTIVAZIONE MICROFONO...</div>
+<div id="mic-toggle">MIC: ON</div>
+
+<div id="ui-toggle">NASCONDI</div>
+
 <div id="paste-hint">COPIA UN'IMMAGINE E PREMI CTRL+V PER INCOLLARLA</div>
+
+<div id="controls">
+  <label id="slider-label" for="distortion-slider">DISTORSIONE</label>
+  <input type="range" id="distortion-slider" min="0" max="1" step="0.01" value="0">
+</div>
 
 <script>
 let audioCtx, analyser, dataArray;
 let micReady = false;
+let micStream = null;
 
 async function initAudio() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    micStream = stream;
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const source = audioCtx.createMediaStreamSource(stream);
     analyser = audioCtx.createAnalyser();
@@ -173,10 +255,25 @@ async function initAudio() {
     dataArray = new Uint8Array(analyser.frequencyBinCount);
     micReady = true;
     document.getElementById('mic-status').textContent = 'MICROFONO ATTIVO';
+    document.getElementById('mic-toggle').textContent = 'MIC: ON';
+    document.getElementById('mic-toggle').classList.remove('off');
   } catch (e) {
     document.getElementById('mic-status').textContent = 'MICROFONO NON DISPONIBILE';
     micReady = false;
   }
+}
+
+function stopMic() {
+  if (micStream) {
+    micStream.getTracks().forEach(function (t) { t.stop(); });
+  }
+  if (audioCtx) {
+    audioCtx.close();
+  }
+  micReady = false;
+  document.getElementById('mic-status').textContent = 'MICROFONO SPENTO';
+  document.getElementById('mic-toggle').textContent = 'MIC: OFF';
+  document.getElementById('mic-toggle').classList.add('off');
 }
 
 function getAudioEnergy() {
@@ -206,6 +303,12 @@ resize();
 
 let time = 0;
 let photoImage = null;
+let sliderValue = 0;
+
+const slider = document.getElementById('distortion-slider');
+slider.addEventListener('input', function () {
+  sliderValue = parseFloat(this.value);
+});
 
 // --- Glitch params ---
 let p = {
@@ -338,55 +441,79 @@ function drawGlitch() {
   gCtx.fillRect(0, 0, W, H);
 }
 
-// --- Draw photo layer (pixelated + distorted by voice) ---
+// Offscreen canvas for halftone rendering
+const photoOffscreen = document.createElement('canvas');
+const photoOffCtx = photoOffscreen.getContext('2d');
+
+// Pseudo-random stabile per evitare animazione
+function stableRand(x, y) {
+  let h = x * 374761393 + y * 668265263;
+  h = ((h ^ (h >> 13)) * 1274126177) | 0;
+  return ((h ^ (h >> 16)) & 0x7fffffff) / 0x7fffffff;
+}
+
 function drawPhoto() {
-  pCtx.clearRect(0, 0, W, H);
+  const t = Math.pow(sliderValue, 0.5);
 
-  if (!photoImage) return;
+  pCtx.fillStyle = '#d4d4d4';
+  pCtx.fillRect(0, 0, W, H);
 
-  // Pixelation + distortion grow with voice intensity
-  const photoPx = Math.max(1, Math.floor(1 + p.intensity * 8));
-  const pw = Math.ceil(W / photoPx);
-  const ph = Math.ceil(H / photoPx);
+  if (photoImage) {
+    drawHalftoneImage(photoImage, t);
+  }
+}
 
-  // Opacity fades with voice
-  const opacity = Math.max(0, 1 - p.intensity * 1.1);
-  if (opacity <= 0) return;
-
-  pCtx.globalAlpha = opacity;
-
-  // Draw at low resolution for pixelation
-  pCtx.imageSmoothingEnabled = false;
-  pCtx.drawImage(photoImage, 0, 0, W, H, 0, 0, pw, ph);
-  pCtx.drawImage(photoCanvas, 0, 0, pw, ph, 0, 0, W, H);
-
-  // Horizontal displacement strips on photo
-  if (p.intensity > 0.1) {
-    const numStrips = Math.floor(3 + p.intensity * 15);
-    const stripH = Math.ceil(H / numStrips);
-    for (let i = 0; i < numStrips; i++) {
-      if (Math.random() > p.intensity * 0.5) continue;
-      const sy = i * stripH;
-      const dx = (Math.random() - 0.5) * p.intensity * 60;
-      pCtx.drawImage(photoCanvas, 0, sy, W, stripH, dx, sy, W, stripH);
-    }
+function drawHalftoneImage(img, t) {
+  const imgAspect = img.width / img.height;
+  const screenAspect = W / H;
+  let sx, sy, sw, sh;
+  if (imgAspect > screenAspect) {
+    sh = img.height;
+    sw = sh * screenAspect;
+    sx = (img.width - sw) / 2;
+    sy = 0;
+  } else {
+    sw = img.width;
+    sh = sw / screenAspect;
+    sx = 0;
+    sy = (img.height - sh) / 2;
   }
 
-  // Noise overlay on photo
-  if (p.noise > 0.05) {
-    const imageData = pCtx.getImageData(0, 0, W, H);
-    const data = imageData.data;
-    const numNoise = Math.floor(data.length * p.noise * 0.15);
-    for (let i = 0; i < numNoise; i++) {
-      const idx = Math.floor(Math.random() * data.length / 4) * 4;
-      data[idx] = Math.random() > 0.5 ? 255 : data[idx];
-      data[idx + 1] = Math.random() > 0.5 ? 255 : data[idx + 1];
-      data[idx + 2] = Math.random() > 0.5 ? 255 : data[idx + 2];
-    }
-    pCtx.putImageData(imageData, 0, 0);
-  }
+  const gridSpacing = Math.max(2, 3 + t * 25);
+  const maxRadius = 2 + t * 14;
+  const jitter = t * gridSpacing * 0.35;
 
-  pCtx.globalAlpha = 1;
+  const cols = Math.ceil(W / gridSpacing) + 1;
+  const rows = Math.ceil(H / gridSpacing) + 1;
+
+  photoOffscreen.width = cols;
+  photoOffscreen.height = rows;
+  photoOffCtx.drawImage(img, sx, sy, sw, sh, 0, 0, cols, rows);
+  const sampleData = photoOffCtx.getImageData(0, 0, cols, rows).data;
+
+  pCtx.fillStyle = '#000';
+
+  const gridOffsetX = (W - cols * gridSpacing) / 2;
+  const gridOffsetY = (H - rows * gridSpacing) / 2;
+
+  for (let gx = 0; gx < cols; gx++) {
+    for (let gy = 0; gy < rows; gy++) {
+      const idx = (gy * cols + gx) * 4;
+      const brightness = (sampleData[idx] + sampleData[idx + 1] + sampleData[idx + 2]) / 3;
+      const darkness = 1 - brightness / 255;
+
+      const offset = (stableRand(gx, gy) - 0.5) * jitter;
+      const px = gridOffsetX + gx * gridSpacing + offset;
+      const py = gridOffsetY + gy * gridSpacing + (stableRand(gx + 999, gy + 999) - 0.5) * jitter;
+      const r = maxRadius * darkness * (0.6 + stableRand(gx + 333, gy + 333) * 0.4);
+
+      if (r > 0.3) {
+        pCtx.beginPath();
+        pCtx.arc(px, py, r, 0, Math.PI * 2);
+        pCtx.fill();
+      }
+    }
+  }
 }
 
 // --- Main loop ---
@@ -394,21 +521,6 @@ function draw() {
   drawGlitch();
   drawPhoto();
   requestAnimationFrame(draw);
-}
-
-const bodyEl = document.getElementById('body-text');
-const fullText = bodyEl.textContent.trim();
-bodyEl.textContent = '';
-bodyEl.classList.add('typing');
-let idx = 0;
-function typeWriter() {
-  if (idx < fullText.length) {
-    bodyEl.textContent += fullText.charAt(idx);
-    idx++;
-    setTimeout(typeWriter, 30 + Math.random() * 20);
-  } else {
-    bodyEl.classList.remove('typing');
-  }
 }
 
 // Paste image from clipboard
@@ -430,7 +542,27 @@ document.addEventListener('paste', function (e) {
 
 initAudio();
 draw();
-setTimeout(typeWriter, 4500);
+
+// Toggle UI
+const toggleBtn = document.getElementById('ui-toggle');
+toggleBtn.addEventListener('click', function () {
+  const hidden = document.querySelectorAll('#paste-hint.hidden, #mic-status.hidden, #controls.hidden');
+  const isHidden = hidden.length > 0;
+  for (const el of document.querySelectorAll('#paste-hint, #mic-status, #controls')) {
+    el.classList.toggle('hidden', !isHidden);
+  }
+  toggleBtn.textContent = isHidden ? 'NASCONDI' : 'MOSTRA';
+});
+
+// Toggle MIC
+const micToggle = document.getElementById('mic-toggle');
+micToggle.addEventListener('click', function () {
+  if (micReady) {
+    stopMic();
+  } else {
+    initAudio();
+  }
+});
 </script>
 </body>
 </html>
