@@ -63,6 +63,8 @@ body {
 }
 
 #paste-hint.hidden { opacity: 0; }
+.toggleable { transition: opacity 0.4s; }
+.toggleable.hidden { opacity: 0 !important; pointer-events: none !important; }
 
 #mic-status {
   position: fixed;
@@ -165,17 +167,17 @@ body {
 <canvas id="photo-canvas"></canvas>
 <canvas id="text-overlay-canvas"></canvas>
 
-<div id="mic-status">ATTIVAZIONE MICROFONO...</div>
+<div id="mic-status" class="toggleable">ATTIVAZIONE MICROFONO...</div>
 <div id="mic-toggle">MIC: ON</div>
 
 <div id="ui-toggle">NASCONDI</div>
 
-<div id="paste-hint">COPIA UN'IMMAGINE (CTRL+V)</div>
+<div id="paste-hint" class="toggleable">COPIA UN'IMMAGINE (CTRL+V)</div>
 <input type="file" id="photo-input" accept="image/*" style="display:none">
 <input type="file" id="video-input" accept="video/*" style="display:none">
 <video id="video-source" loop style="display:none"></video>
-<button id="photo-btn">CARICA FOTO</button>
-<button id="video-btn">CARICA VIDEO</button>
+<button id="photo-btn" class="toggleable">CARICA FOTO</button>
+<button id="video-btn" class="toggleable">CARICA VIDEO</button>
 
 
 <script>
@@ -527,9 +529,9 @@ draw();
 // Toggle UI
 const toggleBtn = document.getElementById('ui-toggle');
 toggleBtn.addEventListener('click', function () {
-  const hidden = document.querySelectorAll('#paste-hint.hidden, #mic-status.hidden');
-  const isHidden = hidden.length > 0;
-  for (const el of document.querySelectorAll('#paste-hint, #mic-status')) {
+  const toggleable = document.querySelectorAll('.toggleable');
+  const isHidden = toggleable[0] && toggleable[0].classList.contains('hidden');
+  for (const el of toggleable) {
     el.classList.toggle('hidden', !isHidden);
   }
   toggleBtn.textContent = isHidden ? 'NASCONDI' : 'MOSTRA';
