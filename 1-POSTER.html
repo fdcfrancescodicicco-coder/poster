@@ -39,103 +39,15 @@ body {
   mix-blend-mode: multiply;
 }
 
-#text-layer {
+#text-overlay-canvas {
   position: fixed;
   inset: 0;
   z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-  color: #fff;
-  text-align: center;
-  pointer-events: none;
-}
-
-.text-block {
-  opacity: 0;
-  transform: translateY(30px);
-  animation: fadeUp 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.text-block:nth-child(1) { animation-delay: 0.5s; }
-.text-block:nth-child(2) { animation-delay: 2.0s; }
-.text-block:nth-child(3) { animation-delay: 3.5s; }
-
-@keyframes fadeUp {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-#title {
-  font-size: 0.55rem;
-  font-weight: 400;
-  letter-spacing: 0.08em;
-  line-height: 1;
-  margin-bottom: 0;
-  color: #fff;
-  font-family: monospace;
-}
-
-
-
-#controls {
-  position: fixed;
-  bottom: 1.5rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-  width: 280px;
-  max-width: 70vw;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  transition: opacity 0.4s;
-}
-
-#controls.hidden { opacity: 0; pointer-events: none; }
-
-#slider-label {
-  color: #fff;
-  font-size: 0.55rem;
-  font-family: monospace;
-  letter-spacing: 0.12em;
-  pointer-events: none;
-}
-
-#distortion-slider {
-  -webkit-appearance: none;
-  appearance: none;
   width: 100%;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.25);
-  outline: none;
-  cursor: pointer;
+  height: 100%;
+  pointer-events: none;
 }
 
-#distortion-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #fff;
-  border: none;
-  cursor: pointer;
-}
-
-#distortion-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #fff;
-  border: none;
-  cursor: pointer;
-}
 
 #paste-hint {
   position: fixed;
@@ -213,18 +125,17 @@ body {
 #mic-toggle.off {
   opacity: 0.25;
   color: rgba(255, 100, 100, 0.6);
-}</style>
+}
+
+
+
+</style>
 </head>
 <body>
 
 <canvas id="glitch-canvas"></canvas>
 <canvas id="photo-canvas"></canvas>
-
-<div id="text-layer">
-  <div class="text-block">
-    <h1 id="title">HOW TO DISAPPEAR COMPLETELY</h1>
-  </div>
-</div>
+<canvas id="text-overlay-canvas"></canvas>
 
 <div id="mic-status">ATTIVAZIONE MICROFONO...</div>
 <div id="mic-toggle">MIC: ON</div>
@@ -233,10 +144,6 @@ body {
 
 <div id="paste-hint">COPIA UN'IMMAGINE E PREMI CTRL+V PER INCOLLARLA</div>
 
-<div id="controls">
-  <label id="slider-label" for="distortion-slider">DISTORSIONE</label>
-  <input type="range" id="distortion-slider" min="0" max="1" step="0.01" value="0">
-</div>
 
 <script>
 let audioCtx, analyser, dataArray;
@@ -292,23 +199,21 @@ const gCtx = glitchCanvas.getContext('2d');
 const photoCanvas = document.getElementById('photo-canvas');
 const pCtx = photoCanvas.getContext('2d');
 
+// --- Text overlay canvas ---
+const textOverlayCanvas = document.getElementById('text-overlay-canvas');
+const tCtx = textOverlayCanvas.getContext('2d');
+
 let W, H;
 
 function resize() {
-  W = glitchCanvas.width = photoCanvas.width = window.innerWidth;
-  H = glitchCanvas.height = photoCanvas.height = window.innerHeight;
+  W = glitchCanvas.width = photoCanvas.width = textOverlayCanvas.width = window.innerWidth;
+  H = glitchCanvas.height = photoCanvas.height = textOverlayCanvas.height = window.innerHeight;
 }
 window.addEventListener('resize', resize);
 resize();
 
 let time = 0;
 let photoImage = null;
-let sliderValue = 0;
-
-const slider = document.getElementById('distortion-slider');
-slider.addEventListener('input', function () {
-  sliderValue = parseFloat(this.value);
-});
 
 // --- Glitch params ---
 let p = {
@@ -441,90 +346,82 @@ function drawGlitch() {
   gCtx.fillRect(0, 0, W, H);
 }
 
-// Offscreen canvas for halftone rendering
-const photoOffscreen = document.createElement('canvas');
-const photoOffCtx = photoOffscreen.getContext('2d');
-
-// Pseudo-random stabile per evitare animazione
-function stableRand(x, y) {
-  let h = x * 374761393 + y * 668265263;
-  h = ((h ^ (h >> 13)) * 1274126177) | 0;
-  return ((h ^ (h >> 16)) & 0x7fffffff) / 0x7fffffff;
-}
-
 function drawPhoto() {
-  const t = Math.pow(sliderValue, 0.5);
-
-  pCtx.fillStyle = '#d4d4d4';
-  pCtx.fillRect(0, 0, W, H);
+  pCtx.clearRect(0, 0, W, H);
 
   if (photoImage) {
-    drawHalftoneImage(photoImage, t);
+    const imgAspect = photoImage.width / photoImage.height;
+    const screenAspect = W / H;
+    let sx, sy, sw, sh;
+    if (imgAspect > screenAspect) {
+      sh = photoImage.height;
+      sw = sh * screenAspect;
+      sx = (photoImage.width - sw) / 2;
+      sy = 0;
+    } else {
+      sw = photoImage.width;
+      sh = sw / screenAspect;
+      sx = 0;
+      sy = (photoImage.height - sh) / 2;
+    }
+    pCtx.drawImage(photoImage, sx, sy, sw, sh, 0, 0, W, H);
   }
 }
 
-function drawHalftoneImage(img, t) {
-  const imgAspect = img.width / img.height;
-  const screenAspect = W / H;
-  let sx, sy, sw, sh;
-  if (imgAspect > screenAspect) {
-    sh = img.height;
-    sw = sh * screenAspect;
-    sx = (img.width - sw) / 2;
-    sy = 0;
-  } else {
-    sw = img.width;
-    sh = sw / screenAspect;
-    sx = 0;
-    sy = (img.height - sh) / 2;
-  }
+const glitchText = "HOW TO DISAPPEAR COMPLETELY";
+const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*+=-_<>?/\\|~";
 
-  const gridSpacing = Math.max(2, 3 + t * 25);
-  const maxRadius = 2 + t * 14;
-  const jitter = t * gridSpacing * 0.35;
+function drawGlitchTextOnCtx(ctx, energy) {
+  const intensity = Math.min(1, energy * 4);
+  const fontSize = 14 + intensity * 20;
+  ctx.font = `bold ${fontSize}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
 
-  const cols = Math.ceil(W / gridSpacing) + 1;
-  const rows = Math.ceil(H / gridSpacing) + 1;
+  const centerX = W / 2;
+  const centerY = H / 2;
 
-  photoOffscreen.width = cols;
-  photoOffscreen.height = rows;
-  photoOffCtx.drawImage(img, sx, sy, sw, sh, 0, 0, cols, rows);
-  const sampleData = photoOffCtx.getImageData(0, 0, cols, rows).data;
+  const spread = intensity * 100;
+  const rgbShift = intensity * 6;
 
-  pCtx.fillStyle = '#000';
+  for (let i = 0; i < glitchText.length; i++) {
+    const char = glitchText[i];
+    const xPos = centerX + (i - glitchText.length / 2) * (fontSize * 0.65);
 
-  const gridOffsetX = (W - cols * gridSpacing) / 2;
-  const gridOffsetY = (H - rows * gridSpacing) / 2;
+    const offsetX = (Math.random() - 0.5) * spread;
+    const offsetY = (Math.random() - 0.5) * spread;
+    const rot = (Math.random() - 0.5) * intensity * 0.5;
+    const scale = 1 + (Math.random() - 0.5) * intensity * 1.5;
 
-  for (let gx = 0; gx < cols; gx++) {
-    for (let gy = 0; gy < rows; gy++) {
-      const idx = (gy * cols + gx) * 4;
-      const brightness = (sampleData[idx] + sampleData[idx + 1] + sampleData[idx + 2]) / 3;
-      const darkness = 1 - brightness / 255;
+    const displayChar = intensity > 0.1 && Math.random() < intensity * 0.6
+      ? chars[Math.floor(Math.random() * chars.length)]
+      : char;
 
-      const offset = (stableRand(gx, gy) - 0.5) * jitter;
-      const px = gridOffsetX + gx * gridSpacing + offset;
-      const py = gridOffsetY + gy * gridSpacing + (stableRand(gx + 999, gy + 999) - 0.5) * jitter;
+    ctx.save();
+    ctx.translate(xPos + offsetX, centerY + offsetY);
+    ctx.rotate(rot);
+    ctx.scale(scale, 1);
 
-      const wave = 0.5 + 0.5 * Math.sin(gx * 0.12 + gy * 0.08 + time * 4);
-      const wave2 = 0.5 + 0.5 * Math.sin(gx * 0.07 - gy * 0.1 + time * 3 + 2);
-      const waveMix = wave * 0.6 + wave2 * 0.4;
-
-      const r = maxRadius * darkness * (0.3 + waveMix * 0.7);
-
-      if (r > 0.3) {
-        pCtx.beginPath();
-        pCtx.arc(px, py, r, 0, Math.PI * 2);
-        pCtx.fill();
-      }
+    if (intensity > 0.3) {
+      ctx.fillStyle = `rgba(255, 0, 80, ${0.5})`;
+      ctx.fillText(displayChar, rgbShift, 0);
+      ctx.fillStyle = `rgba(0, 200, 255, ${0.5})`;
+      ctx.fillText(displayChar, -rgbShift, 0);
     }
+
+    ctx.fillStyle = '#fff';
+    ctx.fillText(displayChar, 0, 0);
+    ctx.restore();
   }
 }
 
 // --- Main loop ---
 function draw() {
+  const energy = getAudioEnergy();
   drawGlitch();
   drawPhoto();
+  tCtx.clearRect(0, 0, W, H);
+  drawGlitchTextOnCtx(tCtx, energy);
   requestAnimationFrame(draw);
 }
 
@@ -551,9 +448,9 @@ draw();
 // Toggle UI
 const toggleBtn = document.getElementById('ui-toggle');
 toggleBtn.addEventListener('click', function () {
-  const hidden = document.querySelectorAll('#paste-hint.hidden, #mic-status.hidden, #controls.hidden');
+  const hidden = document.querySelectorAll('#paste-hint.hidden, #mic-status.hidden');
   const isHidden = hidden.length > 0;
-  for (const el of document.querySelectorAll('#paste-hint, #mic-status, #controls')) {
+  for (const el of document.querySelectorAll('#paste-hint, #mic-status')) {
     el.classList.toggle('hidden', !isHidden);
   }
   toggleBtn.textContent = isHidden ? 'NASCONDI' : 'MOSTRA';
