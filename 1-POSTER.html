@@ -127,6 +127,27 @@ body {
   color: rgba(255, 100, 100, 0.6);
 }
 
+#photo-btn {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  color: #fff;
+  font-size: 0.55rem;
+  font-family: monospace;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  opacity: 0.5;
+  background: none;
+  border: 1px solid rgba(255,255,255,0.25);
+  padding: 6px 14px;
+  transition: opacity 0.3s;
+}
+
+#photo-btn:hover {
+  opacity: 1;
+}
 
 
 </style>
@@ -142,7 +163,9 @@ body {
 
 <div id="ui-toggle">NASCONDI</div>
 
-<div id="paste-hint">COPIA UN'IMMAGINE E PREMI CTRL+V PER INCOLLARLA</div>
+<div id="paste-hint">COPIA UN'IMMAGINE (CTRL+V)</div>
+<input type="file" id="photo-input" accept="image/*" style="display:none">
+<button id="photo-btn">CARICA FOTO</button>
 
 
 <script>
@@ -440,6 +463,23 @@ document.addEventListener('paste', function (e) {
       break;
     }
   }
+});
+
+// Photo file input
+const photoInput = document.getElementById('photo-input');
+const photoBtn = document.getElementById('photo-btn');
+photoBtn.addEventListener('click', function () {
+  photoInput.click();
+});
+photoInput.addEventListener('change', function () {
+  const file = this.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = function () {
+    photoImage = img;
+  };
+  img.src = url;
 });
 
 initAudio();
