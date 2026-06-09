@@ -28,15 +28,13 @@ body {
   image-rendering: pixelated;
 }
 
-#photo-layer {
+#photo-canvas {
   position: fixed;
   inset: 0;
   z-index: 1;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  opacity: 0.3;
-  mix-blend-mode: screen;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
   pointer-events: none;
 }
 
@@ -120,23 +118,30 @@ body {
   bottom: 1.5rem;
   right: 1.5rem;
   z-index: 10;
-  color: rgba(0, 229, 255, 0.25);
+  color: #fff;
   font-size: 0.7rem;
   font-family: monospace;
   letter-spacing: 0.1em;
   pointer-events: none;
 }
 
-#mic-status.active {
-  color: rgba(0, 229, 255, 0.7);
+#paste-hint {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 1.5rem;
+  z-index: 10;
+  color: #fff;
+  font-size: 0.7rem;
+  font-family: monospace;
+  letter-spacing: 0.05em;
+  pointer-events: none;
 }
 </style>
 </head>
 <body>
 
 <canvas id="glitch-canvas"></canvas>
-
-<div id="photo-layer" style="background-image: url('Asset/photo.jpg');"></div>
+<canvas id="photo-canvas"></canvas>
 
 <div id="text-layer">
   <div class="text-block">
@@ -150,7 +155,8 @@ body {
   </div>
 </div>
 
-<div id="mic-status">⏳ ATTIVAZIONE MICROFONO...</div>
+<div id="mic-status">ATTIVAZIONE MICROFONO...</div>
+<div id="paste-hint">COPIA UN'IMMAGINE E PREMI CTRL+V PER INCOLLARLA</div>
 
 <script>
 let audioCtx, analyser, dataArray;
@@ -166,10 +172,9 @@ async function initAudio() {
     source.connect(analyser);
     dataArray = new Uint8Array(analyser.frequencyBinCount);
     micReady = true;
-    document.getElementById('mic-status').textContent = '🎤 MICROFONO ATTIVO';
-    document.getElementById('mic-status').classList.add('active');
+    document.getElementById('mic-status').textContent = 'MICROFONO ATTIVO';
   } catch (e) {
-    document.getElementById('mic-status').textContent = '⚠️ MICROFONO NON DISPONIBILE — GLITCH SIMULATO';
+    document.getElementById('mic-status').textContent = 'MICROFONO NON DISPONIBILE';
     micReady = false;
   }
 }
@@ -182,19 +187,27 @@ function getAudioEnergy() {
   return sum / (dataArray.length * 255);
 }
 
-const canvas = document.getElementById('glitch-canvas');
-const ctx = canvas.getContext('2d');
+// --- Glitch canvas ---
+const glitchCanvas = document.getElementById('glitch-canvas');
+const gCtx = glitchCanvas.getContext('2d');
+
+// --- Photo canvas ---
+const photoCanvas = document.getElementById('photo-canvas');
+const pCtx = photoCanvas.getContext('2d');
+
 let W, H;
 
 function resize() {
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
+  W = glitchCanvas.width = photoCanvas.width = window.innerWidth;
+  H = glitchCanvas.height = photoCanvas.height = window.innerHeight;
 }
 window.addEventListener('resize', resize);
 resize();
 
 let time = 0;
+let photoImage = null;
 
+// --- Glitch params ---
 let p = {
   intensity: 0,
   noise: 0,
@@ -233,7 +246,8 @@ function updateParams(energy) {
   }
 }
 
-function draw() {
+// --- Draw glitch background ---
+function drawGlitch() {
   const energy = getAudioEnergy();
   time += 1/60;
   updateParams(energy);
@@ -242,8 +256,8 @@ function draw() {
   const cw = Math.ceil(W / px);
   const ch = Math.ceil(H / px);
 
-  ctx.fillStyle = '#050a0f';
-  ctx.fillRect(0, 0, W, H);
+  gCtx.fillStyle = '#050a0f';
+  gCtx.fillRect(0, 0, W, H);
 
   const numBands = 12 + Math.floor(p.intensity * 30);
   const bandH = ch / numBands;
@@ -256,21 +270,21 @@ function draw() {
     const r = Math.floor(0 + Math.random() * 15 * p.intensity);
     const g = Math.floor(80 + Math.random() * 60 * p.intensity);
     const b = Math.floor(180 + Math.random() * 75 * p.intensity);
-    ctx.fillStyle = `rgb(${r},${g},${b})`;
-    ctx.fillRect(0, y * px, cw * px, Math.ceil(bandH) * px);
-    ctx.fillStyle = `rgba(0, 0, 0, ${0.2 * p.intensity})`;
-    ctx.fillRect(offset, y * px, cw * px, Math.ceil(bandH) * px);
+    gCtx.fillStyle = `rgb(${r},${g},${b})`;
+    gCtx.fillRect(0, y * px, cw * px, Math.ceil(bandH) * px);
+    gCtx.fillStyle = `rgba(0, 0, 0, ${0.2 * p.intensity})`;
+    gCtx.fillRect(offset, y * px, cw * px, Math.ceil(bandH) * px);
   }
 
   if (p.rgb > 0.5) {
     const sx = Math.floor(((Math.random() - 0.5) * p.rgb * 2) / px) * px;
     const sy = Math.floor(((Math.random() - 0.5) * p.rgb) / px) * px;
 
-    ctx.fillStyle = `rgba(255, 0, 80, ${0.12 * p.intensity})`;
-    ctx.fillRect(sx, sy, cw * px, ch * px);
+    gCtx.fillStyle = `rgba(255, 0, 80, ${0.12 * p.intensity})`;
+    gCtx.fillRect(sx, sy, cw * px, ch * px);
 
-    ctx.fillStyle = `rgba(0, 200, 255, ${0.12 * p.intensity})`;
-    ctx.fillRect(-sx, -sy, cw * px, ch * px);
+    gCtx.fillStyle = `rgba(0, 200, 255, ${0.12 * p.intensity})`;
+    gCtx.fillRect(-sx, -sy, cw * px, ch * px);
   }
 
   if (p.noise > 0.01) {
@@ -279,14 +293,14 @@ function draw() {
       const ny = Math.floor(Math.random() * ch) * px;
       const nh = Math.floor(1 + Math.random() * (1 + p.noise * 3)) * px;
       const nw = cw * px;
-      const imageData = ctx.getImageData(0, ny, nw, nh);
+      const imageData = gCtx.getImageData(0, ny, nw, nh);
       for (let j = 0; j < imageData.data.length; j += 4) {
         const v = Math.random() > 0.5 ? 255 : 0;
         imageData.data[j]     = v;
         imageData.data[j + 1] = v * 0.6;
         imageData.data[j + 2] = v * 0.8;
       }
-      ctx.putImageData(imageData, 0, ny);
+      gCtx.putImageData(imageData, 0, ny);
     }
   }
 
@@ -297,32 +311,88 @@ function draw() {
       const bh = Math.floor((2 + Math.random() * 12 * p.intensity) / px) * px;
       const bx = Math.floor(Math.random() * (cw - bw / px)) * px;
       const by = Math.floor(Math.random() * (ch - bh / px)) * px;
-      ctx.fillStyle = `rgba(0, 180, 255, ${0.05 + p.intensity * 0.1})`;
-      ctx.fillRect(bx, by, bw, bh);
+      gCtx.fillStyle = `rgba(0, 180, 255, ${0.05 + p.intensity * 0.1})`;
+      gCtx.fillRect(bx, by, bw, bh);
     }
   }
 
   if (p.scanline > 0.01) {
     for (let y = 0; y < H; y += 3) {
-      ctx.fillStyle = `rgba(0, 0, 0, ${p.scanline})`;
-      ctx.fillRect(0, y, W, 1);
+      gCtx.fillStyle = `rgba(0, 0, 0, ${p.scanline})`;
+      gCtx.fillRect(0, y, W, 1);
     }
   }
 
   if (p.edgeGlow > 0.5) {
-    const g = ctx.createRadialGradient(W/2, H/2, H*0.3, W/2, H/2, H*0.6);
+    const g = gCtx.createRadialGradient(W/2, H/2, H*0.3, W/2, H/2, H*0.6);
     g.addColorStop(0, 'rgba(0,0,0,0)');
     g.addColorStop(1, `rgba(0, 180, 255, ${0.04 * p.intensity})`);
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
+    gCtx.fillStyle = g;
+    gCtx.fillRect(0, 0, W, H);
   }
 
-  const vg = ctx.createRadialGradient(W/2, H/2, H*0.25, W/2, H/2, H*0.85);
+  const vg = gCtx.createRadialGradient(W/2, H/2, H*0.25, W/2, H/2, H*0.85);
   vg.addColorStop(0, 'rgba(0,0,0,0)');
   vg.addColorStop(1, 'rgba(0,0,0,0.7)');
-  ctx.fillStyle = vg;
-  ctx.fillRect(0, 0, W, H);
+  gCtx.fillStyle = vg;
+  gCtx.fillRect(0, 0, W, H);
+}
 
+// --- Draw photo layer (pixelated + distorted by voice) ---
+function drawPhoto() {
+  pCtx.clearRect(0, 0, W, H);
+
+  if (!photoImage) return;
+
+  // Pixelation + distortion grow with voice intensity
+  const photoPx = Math.max(1, Math.floor(1 + p.intensity * 8));
+  const pw = Math.ceil(W / photoPx);
+  const ph = Math.ceil(H / photoPx);
+
+  // Opacity fades with voice
+  const opacity = Math.max(0, 1 - p.intensity * 1.1);
+  if (opacity <= 0) return;
+
+  pCtx.globalAlpha = opacity;
+
+  // Draw at low resolution for pixelation
+  pCtx.imageSmoothingEnabled = false;
+  pCtx.drawImage(photoImage, 0, 0, W, H, 0, 0, pw, ph);
+  pCtx.drawImage(photoCanvas, 0, 0, pw, ph, 0, 0, W, H);
+
+  // Horizontal displacement strips on photo
+  if (p.intensity > 0.1) {
+    const numStrips = Math.floor(3 + p.intensity * 15);
+    const stripH = Math.ceil(H / numStrips);
+    for (let i = 0; i < numStrips; i++) {
+      if (Math.random() > p.intensity * 0.5) continue;
+      const sy = i * stripH;
+      const dx = (Math.random() - 0.5) * p.intensity * 60;
+      pCtx.drawImage(photoCanvas, 0, sy, W, stripH, dx, sy, W, stripH);
+    }
+  }
+
+  // Noise overlay on photo
+  if (p.noise > 0.05) {
+    const imageData = pCtx.getImageData(0, 0, W, H);
+    const data = imageData.data;
+    const numNoise = Math.floor(data.length * p.noise * 0.15);
+    for (let i = 0; i < numNoise; i++) {
+      const idx = Math.floor(Math.random() * data.length / 4) * 4;
+      data[idx] = Math.random() > 0.5 ? 255 : data[idx];
+      data[idx + 1] = Math.random() > 0.5 ? 255 : data[idx + 1];
+      data[idx + 2] = Math.random() > 0.5 ? 255 : data[idx + 2];
+    }
+    pCtx.putImageData(imageData, 0, 0);
+  }
+
+  pCtx.globalAlpha = 1;
+}
+
+// --- Main loop ---
+function draw() {
+  drawGlitch();
+  drawPhoto();
   requestAnimationFrame(draw);
 }
 
@@ -340,6 +410,23 @@ function typeWriter() {
     bodyEl.classList.remove('typing');
   }
 }
+
+// Paste image from clipboard
+document.addEventListener('paste', function (e) {
+  const items = e.clipboardData.items;
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type.startsWith('image/')) {
+      const blob = items[i].getAsFile();
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = function () {
+        photoImage = img;
+      };
+      img.src = url;
+      break;
+    }
+  }
+});
 
 initAudio();
 draw();
