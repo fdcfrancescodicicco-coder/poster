@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Poster Animato — Glitch Audio</title>
+<title>Poster Animato — Cyberpunk CRT</title>
 <style>
 * {
   margin: 0;
@@ -19,16 +19,17 @@ body {
   height: 100vh;
 }
 
-/* --- LAYER 1: GLITCH BACKGROUND (canvas) --- */
+/* --- LAYER 1: GLITCH BACKGROUND --- */
 #glitch-canvas {
   position: fixed;
   inset: 0;
   z-index: 0;
   width: 100%;
   height: 100%;
+  image-rendering: pixelated;
 }
 
-/* --- LAYER 2: PHOTO OVERLAY --- */
+/* --- LAYER 2: PHOTO (clean, no glitch) --- */
 #photo-layer {
   position: fixed;
   inset: 0;
@@ -36,13 +37,12 @@ body {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  opacity: 0.25;
+  opacity: 0.3;
   mix-blend-mode: screen;
-  transition: opacity 1.5s ease;
   pointer-events: none;
 }
 
-/* --- LAYER 3: TEXT OVERLAY --- */
+/* --- LAYER 3: TEXT (clean, no glitch) --- */
 #text-layer {
   position: fixed;
   inset: 0;
@@ -80,10 +80,8 @@ body {
   letter-spacing: -0.02em;
   line-height: 1;
   margin-bottom: 0.25em;
-  text-shadow:
-    0 0 20px rgba(0,0,0,0.8),
-    2px 0 #ff0040,
-    -2px 0 #00e5ff;
+  text-shadow: 0 0 30px rgba(0, 180, 255, 0.4);
+  color: #fff;
 }
 
 #subtitle {
@@ -93,6 +91,7 @@ body {
   text-transform: uppercase;
   margin-bottom: 1.5em;
   opacity: 0;
+  color: rgba(0, 229, 255, 0.9);
 }
 
 #subtitle.reveal { opacity: 1; }
@@ -103,25 +102,20 @@ body {
   line-height: 1.6;
   max-width: 640px;
   opacity: 0;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 #body-text.reveal { opacity: 1; }
 
-/* --- TYPING CURSOR --- */
 .typing::after {
   content: '|';
   display: inline;
   animation: blink 0.8s step-end infinite;
-  color: #ff0040;
+  color: #00e5ff;
 }
 
 @keyframes blink {
   50% { opacity: 0; }
-}
-
-/* --- GLITCH TEXT (applied via JS) --- */
-.glitch-text {
-  position: relative;
 }
 
 /* --- MIC STATUS --- */
@@ -130,30 +124,27 @@ body {
   bottom: 1.5rem;
   right: 1.5rem;
   z-index: 10;
-  color: rgba(255,255,255,0.3);
-  font-size: 0.75rem;
+  color: rgba(0, 229, 255, 0.25);
+  font-size: 0.7rem;
   font-family: monospace;
   letter-spacing: 0.1em;
   pointer-events: none;
 }
 
 #mic-status.active {
-  color: rgba(0,255,100,0.6);
+  color: rgba(0, 229, 255, 0.7);
 }
 </style>
 </head>
 <body>
 
-<!-- LAYER 1: GLITCH CANVAS -->
 <canvas id="glitch-canvas"></canvas>
 
-<!-- LAYER 2: PHOTO -->
 <div id="photo-layer" style="background-image: url('Asset/photo.jpg');"></div>
 
-<!-- LAYER 3: TEXT -->
 <div id="text-layer">
   <div class="text-block">
-    <h1 id="title" class="glitch-text">TITOLO</h1>
+    <h1 id="title">TITOLO</h1>
   </div>
   <div class="text-block">
     <p id="subtitle" class="reveal">Sottotitolo</p>
@@ -163,12 +154,11 @@ body {
   </div>
 </div>
 
-<!-- STATUS -->
 <div id="mic-status">⏳ ATTIVAZIONE MICROFONO...</div>
 
 <script>
 // ============================================================
-// 1. AUDIO — Microfono + Analyser
+// AUDIO
 // ============================================================
 let audioCtx, analyser, dataArray;
 let audioEnergy = 0;
@@ -180,14 +170,13 @@ async function initAudio() {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const source = audioCtx.createMediaStreamSource(stream);
     analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 256;
+    analyser.fftSize = 128;
     source.connect(analyser);
     dataArray = new Uint8Array(analyser.frequencyBinCount);
     micReady = true;
     document.getElementById('mic-status').textContent = '🎤 MICROFONO ATTIVO';
     document.getElementById('mic-status').classList.add('active');
   } catch (e) {
-    console.warn('Microfono non disponibile — glitch simulato.', e);
     document.getElementById('mic-status').textContent = '⚠️ MICROFONO NON DISPONIBILE — GLITCH SIMULATO';
     micReady = false;
   }
@@ -197,15 +186,12 @@ function getAudioEnergy() {
   if (!micReady || !analyser) return 0;
   analyser.getByteFrequencyData(dataArray);
   let sum = 0;
-  for (let i = 0; i < dataArray.length; i++) {
-    sum += dataArray[i];
-  }
-  // Normalize 0–1
+  for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
   return sum / (dataArray.length * 255);
 }
 
 // ============================================================
-// 2. GLITCH CANVAS
+// CANVAS SETUP
 // ============================================================
 const canvas = document.getElementById('glitch-canvas');
 const ctx = canvas.getContext('2d');
@@ -215,158 +201,169 @@ function resize() {
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
 }
-
 window.addEventListener('resize', resize);
 resize();
 
-// Parametri glitch (modulati dall'audio)
-let params = {
+let time = 0;
+
+// ============================================================
+// GLITCH PARAMS
+// ============================================================
+let p = {
   intensity: 0,
-  noiseAmount: 0,
-  displaceAmount: 0,
-  rgbSplit: 0,
-  scanlineOpacity: 0,
-  shake: 0,
+  noise: 0,
+  displace: 0,
+  rgb: 0,
+  scanline: 0,
+  pixelate: 0,
+  edgeGlow: 0,
 };
 
-function updateParams(energy, dt) {
-  // energy 0–1, volume percepito con curva esponenziale
-  const e = Math.pow(energy, 0.6);
+function updateParams(energy) {
+  const e = Math.pow(energy, 0.55);
+  p.intensity = Math.min(1, e * 1.3);
+  p.noise = e * 0.2;
+  p.displace = e * 40;
+  p.rgb = e * 14;
+  p.scanline = 0.15 + e * 0.25;
+  p.pixelate = e * 2.5;
+  p.edgeGlow = e * 8;
 
-  params.intensity = e;
-  params.noiseAmount = e * 0.15;
-  params.displaceAmount = e * 40;
-  params.rgbSplit = e * 12;
-  params.scanlineOpacity = e * 0.3;
-  params.shake = e * 6;
-
-  // A volte un burst casuale per simulare glitch anche senza audio
-  if (!micReady && Math.random() < 0.005) {
-    const burst = 0.4 + Math.random() * 0.6;
-    params.intensity = burst;
-    params.noiseAmount = burst * 0.2;
-    params.displaceAmount = burst * 60;
-    params.rgbSplit = burst * 20;
-    params.shake = burst * 10;
-  }
-
-  // Decay naturale
   if (!micReady) {
-    params.intensity *= 0.97;
-    params.noiseAmount *= 0.95;
-    params.displaceAmount *= 0.92;
-    params.rgbSplit *= 0.94;
-    params.shake *= 0.93;
-    params.scanlineOpacity *= 0.96;
+    if (Math.random() < 0.004) {
+      const b = 0.3 + Math.random() * 0.4;
+      p.intensity = b;
+      p.noise = b * 0.25;
+      p.displace = b * 50;
+      p.rgb = b * 18;
+    }
+    p.intensity *= 0.97;
+    p.noise *= 0.95;
+    p.displace *= 0.93;
+    p.rgb *= 0.94;
+    p.scanline = 0.15 + p.intensity * 0.15;
+    p.pixelate *= 0.95;
+    p.edgeGlow *= 0.94;
   }
 }
 
-let time = 0;
-
-function drawGlitch() {
+// ============================================================
+// DRAW GLITCH
+// ============================================================
+function draw() {
   const energy = getAudioEnergy();
-  const dt = 1/60;
-  time += dt;
-  updateParams(energy, dt);
+  time += 1/60;
+  updateParams(energy);
 
-  // --- Sfondo scuro ---
-  ctx.fillStyle = '#0a0a0a';
+  // --- Pixelation (disegno a risoluzione ridotta) ---
+  const px = Math.max(1, Math.floor(1 + p.pixelate));
+  const cw = Math.ceil(W / px);
+  const ch = Math.ceil(H / px);
+
+  ctx.fillStyle = '#050a0f';
   ctx.fillRect(0, 0, W, H);
 
-  // --- RGB split (displacement su canali colore) ---
-  if (params.rgbSplit > 0.5) {
-    const splitX = (Math.random() - 0.5) * params.rgbSplit * 2;
-    const splitY = (Math.random() - 0.5) * params.rgbSplit;
+  // --- Onde di distorsione digitali ---
+  const numBands = 12 + Math.floor(p.intensity * 30);
+  const bandH = ch / numBands;
+  for (let i = 0; i < numBands; i++) {
+    const y = i * bandH;
+    const wave = Math.sin(y * 0.08 + time * 4) * p.displace * 0.5
+               + Math.sin(y * 0.15 + time * 7) * p.displace * 0.3;
+    const offset = Math.floor(wave / px) * px;
 
-    ctx.fillStyle = `rgba(255, 0, 64, ${0.15 * params.intensity})`;
-    ctx.fillRect(W * 0.1 + splitX, H * 0.1 + splitY, W * 0.8, H * 0.8);
-
-    ctx.fillStyle = `rgba(0, 229, 255, ${0.15 * params.intensity})`;
-    ctx.fillRect(W * 0.1 - splitX, H * 0.1 - splitY, W * 0.8, H * 0.8);
+    const r = Math.floor(0 + Math.random() * 15 * p.intensity);
+    const g = Math.floor(80 + Math.random() * 60 * p.intensity);
+    const b = Math.floor(180 + Math.random() * 75 * p.intensity);
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(0, y * px, cw * px, Math.ceil(bandH) * px);
+    ctx.fillStyle = `rgba(0, 0, 0, ${0.2 * p.intensity})`;
+    ctx.fillRect(offset, y * px, cw * px, Math.ceil(bandH) * px);
   }
 
-  // --- Horizontal displacement strips ---
-  if (params.displaceAmount > 1) {
-    const numStrips = Math.floor(8 + params.intensity * 30);
-    for (let i = 0; i < numStrips; i++) {
-      const y = Math.random() * H;
-      const h = 2 + Math.random() * 8 * params.intensity;
-      const dx = (Math.random() - 0.5) * params.displaceAmount * 2;
+  // --- RGB split (aberrazione cromatica) ---
+  if (p.rgb > 0.5) {
+    const sx = Math.floor(((Math.random() - 0.5) * p.rgb * 2) / px) * px;
+    const sy = Math.floor(((Math.random() - 0.5) * p.rgb) / px) * px;
 
-      const r = Math.floor(Math.random() * 255);
-      const g = Math.floor(Math.random() * 255);
-      const b = Math.floor(Math.random() * 255);
-      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.08 + params.intensity * 0.12})`;
-      ctx.fillRect(0, y, W, h);
+    ctx.fillStyle = `rgba(255, 0, 80, ${0.12 * p.intensity})`;
+    ctx.fillRect(sx, sy, cw * px, ch * px);
 
-      // Striscia nera offset
-      if (dx !== 0) {
-        ctx.fillStyle = `rgba(0, 0, 0, ${0.3 * params.intensity})`;
-        ctx.fillRect(dx, y, W, h);
+    ctx.fillStyle = `rgba(0, 200, 255, ${0.12 * p.intensity})`;
+    ctx.fillRect(-sx, -sy, cw * px, ch * px);
+  }
+
+  // --- VHS Static Noise ---
+  if (p.noise > 0.01) {
+    const numNoiseLines = Math.floor(3 + p.noise * 25);
+    for (let i = 0; i < numNoiseLines; i++) {
+      const ny = Math.floor(Math.random() * ch) * px;
+      const nh = Math.floor(1 + Math.random() * (1 + p.noise * 3)) * px;
+      const nw = cw * px;
+      const imageData = ctx.getImageData(0, ny, nw, nh);
+      for (let j = 0; j < imageData.data.length; j += 4) {
+        const v = Math.random() > 0.5 ? 255 : 0;
+        imageData.data[j]     = v;
+        imageData.data[j + 1] = v * 0.6;
+        imageData.data[j + 2] = v * 0.8;
       }
+      ctx.putImageData(imageData, 0, ny);
     }
   }
 
-  // --- Noise / static ---
-  if (params.noiseAmount > 0.01) {
-    const imageData = ctx.getImageData(0, 0, W, H);
-    const data = imageData.data;
-    const pixelsToGlitch = Math.floor(data.length * params.noiseAmount * 0.3);
-
-    for (let i = 0; i < pixelsToGlitch; i++) {
-      const idx = Math.floor(Math.random() * data.length);
-      const val = Math.random() > 0.5 ? 255 : 0;
-      data[idx] = val;
-    }
-
-    ctx.putImageData(imageData, 0, 0);
-  }
-
-  // --- Block corruption ---
-  if (params.intensity > 0.2) {
-    const numBlocks = Math.floor(params.intensity * 15);
-    for (let i = 0; i < numBlocks; i++) {
-      const bw = 20 + Math.random() * 80 * params.intensity;
-      const bh = 4 + Math.random() * 20 * params.intensity;
-      const bx = Math.random() * (W - bw);
-      const by = Math.random() * (H - bh);
-      const gray = Math.floor(Math.random() * 256);
-      ctx.fillStyle = `rgb(${gray},${gray},${gray})`;
+  // --- Digital blocks (corruzione) ---
+  if (p.intensity > 0.1) {
+    const nb = Math.floor(2 + p.intensity * 12);
+    for (let i = 0; i < nb; i++) {
+      const bw = Math.floor((10 + Math.random() * 50 * p.intensity) / px) * px;
+      const bh = Math.floor((2 + Math.random() * 12 * p.intensity) / px) * px;
+      const bx = Math.floor(Math.random() * (cw - bw / px)) * px;
+      const by = Math.floor(Math.random() * (ch - bh / px)) * px;
+      ctx.fillStyle = `rgba(0, 180, 255, ${0.05 + p.intensity * 0.1})`;
       ctx.fillRect(bx, by, bw, bh);
     }
   }
 
-  // --- Scanlines ---
-  if (params.scanlineOpacity > 0.01) {
-    ctx.fillStyle = `rgba(0, 0, 0, ${params.scanlineOpacity})`;
+  // --- CRT Scanlines ---
+  if (p.scanline > 0.01) {
     for (let y = 0; y < H; y += 3) {
+      ctx.fillStyle = `rgba(0, 0, 0, ${p.scanline})`;
       ctx.fillRect(0, y, W, 1);
     }
   }
 
-  // --- Vignetta ---
-  const grad = ctx.createRadialGradient(W/2, H/2, H*0.2, W/2, H/2, H*0.8);
-  grad.addColorStop(0, 'rgba(0,0,0,0)');
-  grad.addColorStop(1, 'rgba(0,0,0,0.5)');
-  ctx.fillStyle = grad;
+  // --- Edge glow (ciano/blu) ---
+  if (p.edgeGlow > 0.5) {
+    const glow = p.edgeGlow;
+    const g = ctx.createRadialGradient(W/2, H/2, H*0.3, W/2, H/2, H*0.6);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(1, `rgba(0, 180, 255, ${0.04 * p.intensity})`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // --- Vignetta scura ---
+  const vg = ctx.createRadialGradient(W/2, H/2, H*0.25, W/2, H/2, H*0.85);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(0,0,0,0.7)');
+  ctx.fillStyle = vg;
   ctx.fillRect(0, 0, W, H);
 
-  requestAnimationFrame(drawGlitch);
+  requestAnimationFrame(draw);
 }
 
 // ============================================================
-// 3. TYPING ANIMATION
+// TYPING
 // ============================================================
 const bodyEl = document.getElementById('body-text');
 const fullText = bodyEl.textContent.trim();
 bodyEl.textContent = '';
 bodyEl.classList.add('typing');
-
-let index = 0;
+let idx = 0;
 function typeWriter() {
-  if (index < fullText.length) {
-    bodyEl.textContent += fullText.charAt(index);
-    index++;
+  if (idx < fullText.length) {
+    bodyEl.textContent += fullText.charAt(idx);
+    idx++;
     setTimeout(typeWriter, 30 + Math.random() * 20);
   } else {
     bodyEl.classList.remove('typing');
@@ -374,10 +371,10 @@ function typeWriter() {
 }
 
 // ============================================================
-// 4. START
+// START
 // ============================================================
 initAudio();
-drawGlitch();
+draw();
 setTimeout(typeWriter, 4500);
 </script>
 </body>
