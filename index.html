@@ -482,6 +482,7 @@ function drawHalftoneImage(img, t) {
   const gridSpacing = Math.max(2, 3 + t * 25);
   const maxRadius = 2 + t * 14;
   const jitter = t * gridSpacing * 0.35;
+  const animMag = t * 4;
 
   const cols = Math.ceil(W / gridSpacing) + 1;
   const rows = Math.ceil(H / gridSpacing) + 1;
@@ -503,8 +504,10 @@ function drawHalftoneImage(img, t) {
       const darkness = 1 - brightness / 255;
 
       const offset = (stableRand(gx, gy) - 0.5) * jitter;
-      const px = gridOffsetX + gx * gridSpacing + offset;
-      const py = gridOffsetY + gy * gridSpacing + (stableRand(gx + 999, gy + 999) - 0.5) * jitter;
+      const ax = Math.sin(gx * 0.5 + gy * 0.3 + time * 2) * animMag;
+      const ay = Math.cos(gy * 0.5 + gx * 0.3 + time * 2.4) * animMag;
+      const px = gridOffsetX + gx * gridSpacing + offset + ax;
+      const py = gridOffsetY + gy * gridSpacing + (stableRand(gx + 999, gy + 999) - 0.5) * jitter + ay;
       const r = maxRadius * darkness * (0.6 + stableRand(gx + 333, gy + 333) * 0.4);
 
       if (r > 0.3) {
