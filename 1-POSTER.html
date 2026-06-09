@@ -409,30 +409,27 @@ function drawPhoto() {
   pCtx.drawImage(source, sx, sy, sw, sh, 0, 0, W, H);
 
   const energy = getAudioEnergy();
-  if (energy > 0.02) {
+  if (energy > 0.03) {
     const imageData = pCtx.getImageData(0, 0, W, H);
     const d = imageData.data;
     const out = new Uint8ClampedArray(d);
-    const disp = energy * 80;
+    const shift = energy * 50;
+    const numBands = 8 + Math.floor(energy * 20);
 
-    for (let y = 0; y < H; y += 2) {
-      for (let x = 0; x < W; x += 2) {
-        const dx = Math.sin(x * 0.04 + time * 3) * Math.cos(y * 0.04 + time * 2) * disp;
-        const dy = Math.cos(x * 0.03 + time * 2) * Math.sin(y * 0.05 + time * 1.5) * disp;
-        const srcX = Math.round(x + dx);
-        const srcY = Math.round(y + dy);
+    for (let i = 0; i < numBands; i++) {
+      const x = Math.floor(Math.random() * W);
+      const w = 2 + Math.floor(Math.random() * 8 * energy);
+      const offset = Math.floor((Math.random() - 0.5) * shift);
 
-        if (srcX >= 0 && srcX < W && srcY >= 0 && srcY < H) {
-          const si = (srcY * W + srcX) * 4;
-          for (let oy = 0; oy < 2; oy++) {
-            for (let ox = 0; ox < 2; ox++) {
-              const di = ((y + oy) * W + (x + ox)) * 4;
-              out[di] = d[si];
-              out[di + 1] = d[si + 1];
-              out[di + 2] = d[si + 2];
-              out[di + 3] = d[si + 3];
-            }
-          }
+      for (let col = x; col < Math.min(W, x + w); col++) {
+        for (let row = 0; row < H; row++) {
+          const srcRow = Math.max(0, Math.min(H - 1, row + offset));
+          const si = (srcRow * W + col) * 4;
+          const di = (row * W + col) * 4;
+          out[di] = d[si];
+          out[di + 1] = d[si + 1];
+          out[di + 2] = d[si + 2];
+          out[di + 3] = d[si + 3];
         }
       }
     }
