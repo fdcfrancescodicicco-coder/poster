@@ -127,9 +127,8 @@ body {
   color: rgba(255, 100, 100, 0.6);
 }
 
-#photo-btn {
+#photo-btn, #video-btn {
   position: fixed;
-  bottom: 1.5rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
@@ -145,8 +144,16 @@ body {
   transition: opacity 0.3s;
 }
 
-#photo-btn:hover {
+#photo-btn:hover, #video-btn:hover {
   opacity: 1;
+}
+
+#photo-btn {
+  bottom: 1.5rem;
+}
+
+#video-btn {
+  bottom: 3.5rem;
 }
 
 
@@ -165,7 +172,10 @@ body {
 
 <div id="paste-hint">COPIA UN'IMMAGINE (CTRL+V)</div>
 <input type="file" id="photo-input" accept="image/*" style="display:none">
+<input type="file" id="video-input" accept="video/*" style="display:none">
+<video id="video-source" loop style="display:none"></video>
 <button id="photo-btn">CARICA FOTO</button>
+<button id="video-btn">CARICA VIDEO</button>
 
 
 <script>
@@ -237,6 +247,7 @@ resize();
 
 let time = 0;
 let photoImage = null;
+let videoElement = null;
 
 // --- Glitch params ---
 let p = {
@@ -372,22 +383,25 @@ function drawGlitch() {
 function drawPhoto() {
   pCtx.clearRect(0, 0, W, H);
 
-  if (photoImage) {
-    const imgAspect = photoImage.width / photoImage.height;
+  const source = (videoElement && !videoElement.paused) ? videoElement : photoImage;
+  if (source) {
+    const w = source.videoWidth || source.width;
+    const h = source.videoHeight || source.height;
+    const imgAspect = w / h;
     const screenAspect = W / H;
     let sx, sy, sw, sh;
     if (imgAspect > screenAspect) {
-      sh = photoImage.height;
+      sh = h;
       sw = sh * screenAspect;
-      sx = (photoImage.width - sw) / 2;
+      sx = (w - sw) / 2;
       sy = 0;
     } else {
-      sw = photoImage.width;
+      sw = w;
       sh = sw / screenAspect;
       sx = 0;
-      sy = (photoImage.height - sh) / 2;
+      sy = (h - sh) / 2;
     }
-    pCtx.drawImage(photoImage, sx, sy, sw, sh, 0, 0, W, H);
+    pCtx.drawImage(source, sx, sy, sw, sh, 0, 0, W, H);
   }
 }
 
@@ -457,6 +471,10 @@ document.addEventListener('paste', function (e) {
       const url = URL.createObjectURL(blob);
       const img = new Image();
       img.onload = function () {
+        const vid = document.getElementById('video-source');
+        vid.pause();
+        vid.src = '';
+        videoElement = null;
         photoImage = img;
       };
       img.src = url;
@@ -477,9 +495,30 @@ photoInput.addEventListener('change', function () {
   const url = URL.createObjectURL(file);
   const img = new Image();
   img.onload = function () {
+    const vid = document.getElementById('video-source');
+    vid.pause();
+    vid.src = '';
+    videoElement = null;
     photoImage = img;
   };
   img.src = url;
+});
+
+// Video file input
+const videoInput = document.getElementById('video-input');
+const videoBtn = document.getElementById('video-btn');
+videoBtn.addEventListener('click', function () {
+  videoInput.click();
+});
+videoInput.addEventListener('change', function () {
+  const file = this.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const vid = document.getElementById('video-source');
+  vid.src = url;
+  vid.play();
+  videoElement = vid;
+  photoImage = null;
 });
 
 initAudio();
