@@ -158,6 +158,33 @@ body {
   bottom: 3.5rem;
 }
 
+#webcam-btn {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  color: #fff;
+  font-size: 0.55rem;
+  font-family: monospace;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  opacity: 0.5;
+  background: none;
+  border: 1px solid rgba(255,255,255,0.25);
+  padding: 6px 14px;
+  bottom: 5.5rem;
+  transition: opacity 0.3s;
+}
+
+#webcam-btn:hover {
+  opacity: 1;
+}
+
+#webcam-btn.active {
+  opacity: 1;
+  border-color: rgba(0, 255, 100, 0.5);
+}
+
 
 </style>
 </head>
@@ -176,14 +203,19 @@ body {
 <input type="file" id="photo-input" accept="image/*" style="display:none">
 <input type="file" id="video-input" accept="video/*" style="display:none">
 <video id="video-source" loop style="display:none"></video>
+<video id="webcam-source" autoplay playsinline style="display:none"></video>
 <button id="photo-btn" class="toggleable">CARICA FOTO</button>
 <button id="video-btn" class="toggleable">CARICA VIDEO</button>
+<button id="webcam-btn">WEBCAM: OFF</button>
 
 
 <script>
 let audioCtx, analyser, dataArray;
 let micReady = false;
 let micStream = null;
+let webcamStream = null;
+let webcamActive = false;
+let webcamVideo = null;
 
 async function initAudio() {
   try {
@@ -385,7 +417,7 @@ function drawGlitch() {
 function drawPhoto() {
   pCtx.clearRect(0, 0, W, H);
 
-  const source = (videoElement && !videoElement.paused) ? videoElement : photoImage;
+  const source = webcamActive && webcamVideo ? webcamVideo : (videoElement && !videoElement.paused) ? videoElement : photoImage;
   if (source) {
     const w = source.videoWidth || source.width;
     const h = source.videoHeight || source.height;
@@ -502,6 +534,7 @@ photoInput.addEventListener('change', function () {
     vid.src = '';
     videoElement = null;
     photoImage = img;
+    if (webcamActive) toggleWebcam();
   };
   img.src = url;
 });
@@ -521,7 +554,36 @@ videoInput.addEventListener('change', function () {
   vid.play();
   videoElement = vid;
   photoImage = null;
+  if (webcamActive) toggleWebcam();
 });
+
+async function toggleWebcam() {
+  if (webcamActive) {
+    if (webcamStream) {
+      webcamStream.getTracks().forEach(function (t) { t.stop(); });
+    }
+    webcamActive = false;
+    webcamVideo = null;
+    document.getElementById('webcam-btn').textContent = 'WEBCAM: OFF';
+    document.getElementById('webcam-btn').classList.remove('active');
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    webcamStream = stream;
+    const vid = document.getElementById('webcam-source');
+    vid.srcObject = stream;
+    await vid.play();
+    webcamVideo = vid;
+    webcamActive = true;
+    document.getElementById('webcam-btn').textContent = 'WEBCAM: ON';
+    document.getElementById('webcam-btn').classList.add('active');
+  } catch (e) {
+    document.getElementById('webcam-btn').textContent = 'WEBCAM: ERRORE';
+  }
+}
+
+document.getElementById('webcam-btn').addEventListener('click', toggleWebcam);
 
 initAudio();
 draw();
