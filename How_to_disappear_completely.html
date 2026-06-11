@@ -469,19 +469,46 @@ function drawPhoto() {
     pCtx.putImageData(imageData, 0, 0);
   }
 
-  if (webcamActive) {
-    const pw = Math.ceil(W / 20);
-    const ph = Math.ceil(H / 20);
-    if (!pixelTemp || pixelTemp.width !== pw || pixelTemp.height !== ph) {
+  if (source) {
+    const asciiChars = "-=+*/%#";
+    const rampSize = asciiChars.length;
+    const cols = Math.ceil(W / 8);
+    const rows = Math.ceil(H / 14);
+    const cw = W / cols;
+    const ch = H / rows;
+
+    if (!pixelTemp || pixelTemp.width !== cols || pixelTemp.height !== rows) {
       pixelTemp = document.createElement('canvas');
-      pixelTemp.width = pw;
-      pixelTemp.height = ph;
+      pixelTemp.width = cols;
+      pixelTemp.height = rows;
     }
     const tmp = pixelTemp.getContext('2d');
-    tmp.drawImage(pCtx.canvas, 0, 0, pw, ph);
-    pCtx.imageSmoothingEnabled = false;
-    pCtx.clearRect(0, 0, W, H);
-    pCtx.drawImage(pixelTemp, 0, 0, W, H);
+    tmp.imageSmoothingEnabled = false;
+    tmp.drawImage(pCtx.canvas, 0, 0, cols, rows);
+
+    const imageData = tmp.getImageData(0, 0, cols, rows);
+    const d = imageData.data;
+
+    pCtx.fillStyle = '#000';
+    pCtx.fillRect(0, 0, W, H);
+    pCtx.font = 'bold ' + Math.ceil(ch * 1.1) + 'px monospace';
+    pCtx.textAlign = 'center';
+    pCtx.textBaseline = 'middle';
+
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const idx = (y * cols + x) * 4;
+        const r = d[idx];
+        const g = d[idx + 1];
+        const b = d[idx + 2];
+        const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+        const charIdx = Math.min(rampSize - 1, Math.floor(brightness / 255 * rampSize));
+        const char = asciiChars[charIdx];
+        const gray = Math.round(brightness);
+        pCtx.fillStyle = `rgb(${gray},${gray},${gray})`;
+        pCtx.fillText(char, x * cw + cw / 2, y * ch + ch / 2);
+      }
+    }
   }
 }
 
@@ -489,7 +516,7 @@ const glitchText = "HOW TO DISAPPEAR COMPLETELY";
 const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*+=-_<>?/\\|~";
 
 function drawGlitchTextOnCtx(ctx, energy) {
-  const intensity = Math.min(1, energy * 4);
+  const intensity = Math.min(1, energy * 1.5);
   const fontSize = 14 + intensity * 20;
   ctx.font = `bold ${fontSize}px monospace`;
   ctx.textAlign = 'center';
